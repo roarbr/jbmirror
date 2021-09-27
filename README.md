@@ -1,5 +1,5 @@
 # Jetbrains Plugin Mirror
-This product is used to download wanted JetBrains plugins
+This product is used to download JetBrains plugins listed in a file
 to a local directory.
 
 The downloaded plugins may be copied to a standalone host
@@ -7,6 +7,47 @@ or to offline networks or networks without access to
 the JetBrains Markedplace.
 
 Install the mirrored plugins manually in the desired JetBrains product.
+
+TODO:
+* Create updatePlugins.xml file to be stored on a web-server with the downloaded
+plugins: 
+https://plugins.jetbrains.com/docs/intellij/update-plugins-format.html#describing-your-plugins-in-updatepluginsxml-file
+* JetBrains-plugins-mirror should have all the metadata needed to create this xml file
+* Point JetBrains product settings to use the URL for this xml file as a custom plugin repo:<br>
+https://www.jetbrains.com/help/idea/managing-plugins.html#repos 
+
+# Usage
+* Edit a file called plugins.txt in the same directory as the jbmirror.py file
+* Run ./jbmirror.py
+
+Other examples:
+* ./jbmirror.py -c <another config file>.conf
+
+Will use default values from the jbmirror.conf:
+* Use list of plugins from the file 'plugins.txt'
+* Download for CLion 2021.2
+* Download into local directory called 'plugins' 
+
+Example 'jbmirror.conf':
+```
+[common]
+plugin_dir = plugins
+plugin_file = plugins.txt
+product = "CL"
+
+[product/CL]
+build_version = "212.5284.51"
+```
+
+Example 'plugins.txt':
+```
+org.intellij.plugins.markdown
+org.sylfra.idea.plugins.linessorter
+zielu.gittoolbox
+com.virtuslab.git-machete
+```
+
+# Further documentation of the download process
 
 ## JetBrains Plugins Repository API
 The API used to download plugin files and metadata are
@@ -51,14 +92,14 @@ Required info:
 * PluginXmlId
 
 When browsing the [markedplace](https://markedplace.jetbrains.com) and looking
-on the details of a plugin, you see that the URL contains a number in addition to the
+for the details of a plugin, you see that the URL contains a number in addition to the
 name of the plugin. Example URL for the Markdown plugin:<br>
 https://plugins.jetbrains.com/plugin/7793-markdown/
 
-Here the pluginID is '7793'. This cab be used to get XML dta about this plugin:<br>
+Here the pluginID is '7793'. This can be used to get XML data for this plugin:<br>
 https://plugins.jetbrains.com/plugins/list?pluginId=7793
 
-But this tool downloa plugins from a list file, and it is easier for the user to have a
+But this tool download plugins from a list file, and it is easier for the user to have a
 list of pluginXmlId instead of numeric values. The return XML for the link above contains this info:
 ``` XML
 <name>Markdown</name>
@@ -69,15 +110,16 @@ This 'id' tag here is the pluginXmlId. The same plugin xml data can be downloade
 https://plugins.jetbrains.com/plugins/list?pluginId=org.intellij.plugins.markdown
 
 How can you obtain this pluginXmlID from the markedplace web page?<br>
+
 Go to the plugin Version page in the markedplace. Click on the latest version and on the new
 web-page the 'id' should be presented. Example for the Markdown plugin version 212.5080.22:<br>
 https://plugins.jetbrains.com/plugin/7793-markdown/versions/stable/132494
 
 Returns:
-* XML metadata for this plugin. Containing among oth things: name, pluginXmlID, description, categories and all versions.
+* XML metadata for this plugin. Contains among other things: name, pluginXmlID, description, categories and all versions.
 
 ### Download latest plugin compatible with product and build number
-This URL will download latest version of a plugin that is compatible with the product and build version:<br>
+This URL will download the latest version of a plugin that is compatible with the product and build version:<br>
 https://plugins.jetbrains.com/pluginManager?action=download&id=org.intellij.plugins.markdown&build=CL-212.5284.51
 
 Can also download a given version of a plugin:
@@ -94,8 +136,6 @@ curl -vL "https://plugins.jetbrains.com/pluginManager?action=download&id=org.int
 < HTTP/2 301
 < content-length: 0
 < date: Thu, 23 Sep 2021 10:26:41 GMT
-< set-cookie: AWSALB=eB4jowjeQfcy6XL1iOI/CnnD+MPlczmA8gKDbUFFsCRh3NPeESH+UyJEouo2tmyukxNld56lSNsEcRBgsZD6DXjOT2wiOCdTP8H4p/7KYXwFdJEA37GqbRMiRGDO; Expires=Thu, 30 Sep 2021 10:26:41 GMT; Path=/
-< set-cookie: AWSALBCORS=eB4jowjeQfcy6XL1iOI/CnnD+MPlczmA8gKDbUFFsCRh3NPeESH+UyJEouo2tmyukxNld56lSNsEcRBgsZD6DXjOT2wiOCdTP8H4p/7KYXwFdJEA37GqbRMiRGDO; Expires=Thu, 30 Sep 2021 10:26:41 GMT; Path=/; SameSite=None; Secure
 < location: /files/7793/132494/markdown-212.5080.22.zip?updateId=132494&pluginId=7793&family=INTELLIJ&code=CL&build=212.5284.51
 < x-content-type-options: nosniff
 < x-xss-protection: 1; mode=block
@@ -109,8 +149,6 @@ curl -vL "https://plugins.jetbrains.com/pluginManager?action=download&id=org.int
 < x-edge-origin-shield-skipped: 0
 < x-cache: Miss from cloudfront
 < via: 1.1 f66e3db0f0449307dba3fbf72bbf3bac.cloudfront.net (CloudFront)
-< x-amz-cf-pop: OSL50-C1
-< x-amz-cf-id: fwIOGDLhR5hFjDKHynBrifNoZRqgB0JdhY2kTz55Q5or3ZqyNNa0bQ==
 <
 * Connection #0 to host plugins.jetbrains.com left intact
 * Issue another request to this URL: 'https://plugins.jetbrains.com/files/7793/132494/markdown-212.5080.22.zip?updateId=132494&pluginId=7793&family=INTELLIJ&code=CL&build=212.5284.51'
@@ -129,7 +167,6 @@ curl -vL "https://plugins.jetbrains.com/pluginManager?action=download&id=org.int
 < x-amz-replication-status: COMPLETED
 < last-modified: Fri, 13 Aug 2021 08:54:24 GMT
 < content-disposition: attachment; filename="markdown-212.5080.22.zip"
-< x-amz-version-id: DHVQZU5e3Zl.TwrNSIkd7st_umjCaCfm
 < accept-ranges: bytes
 < server: AmazonS3
 < x-edge-origin-shield-skipped: 0
@@ -137,12 +174,10 @@ curl -vL "https://plugins.jetbrains.com/pluginManager?action=download&id=org.int
 < etag: "3717a45fbd9f780bd5d10704138abadd"
 < x-cache: Hit from cloudfront
 < via: 1.1 f66e3db0f0449307dba3fbf72bbf3bac.cloudfront.net (CloudFront)
-< x-amz-cf-pop: OSL50-C1
-< x-amz-cf-id: ITRdjUCz55Oq7TH-N7dMpD7Ticcooc37YUGEDsOLHcba8WqaZkYaiA==
 < age: 10009
 ```
 
-The HTTP 3 code means that the resource has moved permanently and the response contains the filename, length of file
+The HTTP 301 code means that the resource has moved permanently and the response contains the filename, length of file
 and content-type with the new url to download the file from.
 
 The 'location:' tag gives the new URL that the resource has been moved to.
@@ -169,7 +204,6 @@ echo $LOC
 
 ```
 
-
 # Implementation
-The mirroring is implemented in python using 'request' to download
-metadata information and 'lxml' to parse the xml.
+The jbmirror is implemented in python using 'request' to download
+metadata information and 'lxml' to parse the xml response.
