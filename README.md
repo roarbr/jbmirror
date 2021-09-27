@@ -18,10 +18,10 @@ https://www.jetbrains.com/help/idea/managing-plugins.html#repos
 
 # Usage
 * Edit a file called plugins.txt in the same directory as the jbmirror.py file
-* Run ./jbmirror.py
+* Run `./jbmirror.py`
 
 Other examples:
-* ./jbmirror.py -c <another config file>.conf
+* `./jbmirror.py -c <another config file>.conf`
 
 Will use default values from the jbmirror.conf:
 * Use list of plugins from the file 'plugins.txt'
