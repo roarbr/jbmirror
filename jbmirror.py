@@ -1,151 +1,140 @@
 #!/usr/bin/python3
 
 import requests
-import lxml.etree, lxml.html
+import lxml.etree
+import lxml.html
 import argparse
 import configparser
 import os
 from pathlib import Path
 
-pluginDir = '.'
+config_file = 'jbmirror.conf'
+plugin_dir = '.'
+plugin_list = "plugins.txt"
+product = 'CL'
+build_version = ''
 
 
-def readConfig(configFile='jbmirror.conf'):
+def read_config(use_config_file='jbmirror.conf'):
     config = configparser.ConfigParser()
-    config.read(configFile)
+    config.read(use_config_file)
 
     if "common" not in config.sections():
-        raise Exception(f"Failed to find common section in config file {configFile}")
-    global pluginDir
-    pluginDir = config['common']['plugin_dir']
+        raise Exception(f"Failed to find common section in config file {use_config_file}")
+    global plugin_dir
+    plugin_dir = config['common']['plugin_dir']
+
+    global plugin_list
+    plugin_list = config['common']['plugin_file']
+
+    global product
+    product = config['common']['product'].replace("\"", '')
+
+    global build_version
+    build_version = config['product/' + product]['build_version'].replace("\"", '')
+
 
 def download_file(url):
     local_filename = url.split('/')[-1]
 
-    pluginFile = Path(os.path.join(pluginDir, local_filename))
-    if pluginFile.is_file():
-        print(f"Already have plugin {pluginFile}")
+    plugin_file = Path(os.path.join(plugin_dir, local_filename))
+    if plugin_file.is_file():
+        print(f"Already have plugin {plugin_file}")
         return
 
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
-        # with open(os.path.join(pluginDir, local_filename), 'wb') as f:
-        with open(pluginFile, 'wb') as f:
+        with open(plugin_file, 'wb') as f:
             for chunk in r.iter_content(chunk_size=8192):
-                # If you have chunk encoded response uncomment if
-                # and set chunk_size parameter to None.
-                #if chunk:
                 f.write(chunk)
-    print(f"Downloaded plugin {pluginFile}")
-
-#url="https://plugins.jetbrains.com/pluginManager?action=download&id=org.intellij.plugins.markdown&build=CL-212.5284.51"
-#r = requests.get(url)
+    print(f"Downloaded plugin {plugin_file}")
 
 
-#>>> new_url=r.url.split(".zip", 1)[0] + '.zip'
-#>>> new_url
-#'https://plugins.jetbrains.com/files/7793/132494/markdown-212.5080.22.zip'
+def download_latest_plugin(plugin_id, product_code, product_build_version):
+    # print(F"Downloading latest version of {pluginID} for {product}-{buildVersion}")
 
-# >>> fname=new_url.split('/')[-1]
-# >>> fname
-# 'markdown-212.5080.22.zip'
-
-# >>> download_file(new_url)
-# 'markdown-212.5080.22.zip'
-
-def downloadLatestPlugin(pluginID, product, buildVersion):
-    print(F"Downloading latest version of {pluginID} for {product}-{buildVersion}")
-
-    downloadApiUrl = "https://plugins.jetbrains.com/pluginManager?action=download&" + f"id={pluginID}"\
-                     + f"&build={product}-{buildVersion}"
+    download_api_url = "https://plugins.jetbrains.com/pluginManager?action=download&" + f"id={plugin_id}"\
+                     + f"&build={product_code}-{product_build_version}"
     # print(f"Download URL: {downloadApiUrl}")
 
-    fullUrl = requests.get(downloadApiUrl).url
+    full_url = requests.get(download_api_url).url
     # print(f"Full URL: {fullUrl}")
 
-    pluginUrl = fullUrl.split("?updateId=", 1)[0]
+    plugin_url = full_url.split("?updateId=", 1)[0]
     # print(f"Plugin URL: {pluginUrl}")
 
-    download_file(pluginUrl)
+    download_file(plugin_url)
 
 
-def getPluginInfo(pluginName):
+def get_plugin_info(plugin_name):
     url = "https://plugins.jetbrains.com/plugins/list?pluginId="
-    #    response = requests.get(url + pluginName)
-    #    data = xmltodict.parse(response.content)
-    #    print(f"xml:\n{data}")
+    url_response = requests.get(url + plugin_name)
+    root = lxml.etree.fromstring(url_response.content)
 
-    headers= {"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.82 Safari/537.36"}
-
-    urlResponse = requests.get(url + pluginName, headers=headers)
-    root = lxml.etree.fromstring(urlResponse.content)
-    #    tree = lxml.etree.parse(pluginName + ".xml")
-    #      root = tree.getroot()
-
-    latestVer = None
-    moduleID = None
-    moduleName = None
+    latest_ver = None
+    module_id = None
+    module_name = None
 
     for elem in root.iter():
         #        print(f"TAG: {elem.tag} {elem.text}")
         if elem.tag == 'idea-plugin':
             name = None
-            id = None
+            plugin_id = None
             ver = None
 
             for p in elem:
                 if p.tag == "name":
-                    if moduleName == None:
-                        moduleName = p.text
+                    if not module_name:
+                        module_name = p.text
                     name = p.text
                 if p.tag == "id":
-                    if moduleID == None:
-                        moduleID = p.text
-                    id = p.text
+                    if not module_id:
+                        module_id = p.text
+                    plugin_id = p.text
                 if p.tag == "version":
-                    if latestVer == None:
-                        latestVer = p.text
+                    if not latest_ver:
+                        latest_ver = p.text
                     ver = p.text
-            print(f"{name} {id} {ver}")
+            print(f"{name} {plugin_id} {ver}")
 
             # Stop when all needed info for latest release is obtained
-            if moduleName and moduleID and latestVer:
-                break;
+            if module_name and module_id and latest_ver:
+                break
 
-    print(f"Latest version for {moduleID}: {latestVer}")
+    print(f"Latest version for {module_id}: {latest_ver}")
+
 
 def main():
-    global pluginDir
+    global plugin_dir
+    global config_file
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config-file", help="Config file to use")
     parser.add_argument("-p", "--plugin-dir", help="Directory where to store the plugins. Must exist.")
     args = parser.parse_args()
 
     if args.plugin_dir:
-        pluginDir = args.plugin_dir
+        plugin_dir = args.plugin_dir
+    if args.config_file:
+        config_file = args.config_file
 
-    readConfig()
-    print(f"Download plugins to directory: {pluginDir}")
+    print(f"Using config file....................: {config_file}")
 
-#    jbmirror.getPluginInfo('org.intellij.scala')
+    read_config(config_file)
 
-# These are the same. Name or number from markedplace works:
-#    jbmirror.getPluginInfo('10089')
-#    jbmirror.getPluginInfo('artsiomch.cmake')
+    print(f"Downloading for product-buildVersion.: {product}-{build_version}")
+    print(f"Download plugins to directory........: {plugin_dir}")
 
-    # getPluginInfo('org.intellij.plugins.markdown')
-
-    with open('plugins.txt', 'r') as pluginsList:
+    with open(plugin_list, 'r') as pluginsList:
         lines = pluginsList.readlines()
         for line in lines:
             if not line.startswith("#"):
                 line = line.rstrip().strip()
                 if len(line) <= 3:
                     continue
-                print(f"\n## Mirror plugin |{line}| ##")
-                downloadLatestPlugin(line, 'CL', '212.5284.51')
+#                print(f"\n## Mirror plugin |{line}| ##")
+                download_latest_plugin(line, product, build_version)
 
-#https://plugins.jetbrains.com/plugin/10089-cmake-simple-highlighter/versions/stable/128291
 
 if __name__ == "__main__":
     main()
